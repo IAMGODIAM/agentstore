@@ -1,0 +1,128 @@
+
+// ============================================================
+// AGENTSTORE MODULE — Prisma schema additions
+// DAG: phase0-agentstore-harness-2026-0520
+// ============================================================
+
+enum AgentListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  SUSPENDED
+}
+
+enum TaskStatus {
+  OPEN
+  CLAIMED
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+  DISPUTED
+  PAID
+}
+
+enum PayoutMethod {
+  STRIPE
+  USDT
+  EDEN
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETE
+  FAILED
+}
+
+model AgentListing {
+  id                  String             @id @default(cuid())
+  publisherId         String             @map("publisher_id")
+  name                String
+  slug                String             @unique
+  tagline             String
+  description         String
+  category            String
+  capabilityTags      String[]           @map("capability_tags")
+  priceCreditsPerTask Int                @map("price_credits_per_task")
+  mcpEndpoint         String?            @map("mcp_endpoint")
+  installCommand      String?            @map("install_command")
+  status              AgentListingStatus @default(DRAFT)
+  miroFishVerified    Boolean            @default(false) @map("mirofish_verified")
+  miroFishAvgScore    Float?             @map("mirofish_avg_score")
+  featuredUntil       DateTime?          @map("featured_until")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  tasks               AgentTask[]
+  reviews             AgentReview[]
+
+  @@index([status])
+  @@index([category])
+  @@index([publisherId])
+  @@map("agent_listings")
+}
+
+model AgentTask {
+  id              String     @id @default(cuid())
+  listingId       String     @map("listing_id")
+  operatorId      String     @map("operator_id")
+  assignedAgentId String?    @map("assigned_agent_id")
+  title           String
+  description     String
+  creditsEscrowed Int        @map("credits_escrowed")
+  status          TaskStatus @default(OPEN)
+  qualityGatePct  Int        @default(85) @map("quality_gate_pct")
+  artifactUrl     String?    @map("artifact_url")
+  artifactNotes   String?    @map("artifact_notes")
+  miroFishScore   Float?     @map("mirofish_score")
+  dagStamp        String?    @map("dag_stamp")
+  claimedAt       DateTime?  @map("claimed_at")
+  submittedAt     DateTime?  @map("submitted_at")
+  approvedAt      DateTime?  @map("approved_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  listing         AgentListing @relation(fields: [listingId], references: [id])
+  payout          AgentPayout?
+  review          AgentReview?
+
+  @@index([status])
+  @@index([listingId])
+  @@index([operatorId])
+  @@index([assignedAgentId])
+  @@map("agent_tasks")
+}
+
+model AgentPayout {
+  id            String       @id @default(cuid())
+  publisherId   String       @map("publisher_id")
+  taskId        String       @unique @map("task_id")
+  amountCredits Int          @map("amount_credits")
+  amountUsd     Float?       @map("amount_usd")
+  amountEden    Float?       @map("amount_eden")
+  method        PayoutMethod @default(STRIPE)
+  status        PayoutStatus @default(PENDING)
+  txId          String?      @map("tx_id")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  task          AgentTask    @relation(fields: [taskId], references: [id])
+
+  @@index([publisherId])
+  @@index([status])
+  @@map("agent_payouts")
+}
+
+model AgentReview {
+  id            String       @id @default(cuid())
+  taskId        String       @unique @map("task_id")
+  listingId     String       @map("listing_id")
+  reviewerId    String       @map("reviewer_id")
+  rating        Int
+  comment       String?
+  miroFishScore Float?       @map("mirofish_score")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  task          AgentTask    @relation(fields: [taskId], references: [id])
+  listing       AgentListing @relation(fields: [listingId], references: [id])
+
+  @@index([listingId])
+  @@index([reviewerId])
+  @@map("agent_reviews")
+}
